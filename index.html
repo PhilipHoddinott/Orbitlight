@@ -49,8 +49,8 @@
 <body>
   <header>
     <div class="row">
-      <h1>Ephemr — Satellites Overhead By Philip Hoddinott</h1>
-      <span class="tag">TLE source: <code class="mono">data/tle_latest.txt</code></span>
+  <h1>Ephemr — Satellites Overhead By Philip Hoddinott</h1>
+  <span class="tag">TLE: <span id="tlePill" class="mono">—</span></span>
     </div>
     <div class="row" style="gap: 8px;">
       <span id="locPill" class="pill">Locating…</span>
@@ -108,6 +108,8 @@
     const DATA_URL = 'data/tle_latest.txt';
     const FALLBACK_LOC = { lat: 42.3601, lon: -71.0589, label: 'Boston, MA (fallback)' };
     const CANVAS_MIN = 360; // minimum height if screen is small
+  // Last-modified time for TLE file (embedded at build time)
+  const TLE_MTIME = new Date('2025-11-10T21:13:21.2497508Z');
 
     // --- State ---
   let satRecords = []; // { name, l1, l2, satrec }
@@ -129,6 +131,7 @@
     const siteLabel = document.getElementById('siteLabel');
     const satListEl = document.getElementById('satList');
     const countsEl = document.getElementById('counts');
+  const tlePill = document.getElementById('tlePill');
     const refreshBtn = document.getElementById('refreshBtn');
     const toggleBtn = document.getElementById('toggleBtn');
     const elevCutEl = document.getElementById('elevCut');
@@ -141,6 +144,19 @@
     function fmt(n, d=1) { return Number(n).toFixed(d); }
     function deg2rad(d){ return d * Math.PI / 180; }
     function rad2deg(r){ return r * 180 / Math.PI; }
+
+    function pad2(n){ return String(Math.floor(n)).padStart(2,'0'); }
+
+    function updateTleAge(now){
+      if(!tlePill || !TLE_MTIME) return;
+      const then = TLE_MTIME.getTime();
+      const diffMs = Math.max(0, now.getTime() - then);
+      const s = Math.floor(diffMs / 1000);
+      const hh = Math.floor(s / 3600);
+      const mm = Math.floor((s % 3600) / 60);
+      const ss = s % 60;
+      tlePill.textContent = `${pad2(hh)}:${pad2(mm)}:${pad2(ss)} since last TLE update`;
+    }
 
     function resizeCanvas(){
       const rect = plot.parentElement.getBoundingClientRect();
@@ -315,6 +331,7 @@
     function tick(){
       const now = new Date();
       clockPill.textContent = now.toISOString();
+      updateTleAge(now);
       const elevCut = Number(elevCutEl.value) || 0;
       const altCut = Number(altCutEl.value) || 1000;
 
