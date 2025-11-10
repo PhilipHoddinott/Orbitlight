@@ -50,7 +50,7 @@
   <header>
     <div class="row">
   <h1>Ephemr — Satellites Overhead By Philip Hoddinott</h1>
-  <span class="tag">TLE: <span id="tlePill" class="mono">—</span></span>
+  <span class="tag"><span id="tlePill" class="mono">—</span></span>
     </div>
     <div class="row" style="gap: 8px;">
       <span id="locPill" class="pill">Locating…</span>
@@ -107,7 +107,7 @@
     // --- Config ---
     const DATA_URL = 'data/tle_latest.txt';
     const FALLBACK_LOC = { lat: 42.3601, lon: -71.0589, label: 'Boston, MA (fallback)' };
-    const CANVAS_MIN = 360; // minimum height if screen is small
+  const CANVAS_MIN = 240; // minimum height if screen is small (lower for phones)
   // Last-modified time for TLE file (embedded at build time)
   const TLE_MTIME = new Date('2025-11-10T21:13:21.2497508Z');
 
@@ -160,9 +160,19 @@
 
     function resizeCanvas(){
       const rect = plot.parentElement.getBoundingClientRect();
-      const size = Math.max(Math.min(rect.width, 600), CANVAS_MIN);
-      plot.width = Math.floor(size);
-      plot.height = Math.floor(size);
+      // choose a square size based on parent width, clamp to sensible min/max
+      const cssSize = Math.max(Math.min(rect.width, 600), CANVAS_MIN);
+      // set CSS size so layout uses correct space
+      plot.style.width = cssSize + 'px';
+      plot.style.height = cssSize + 'px';
+      // account for devicePixelRatio for crisp rendering
+      const dpr = window.devicePixelRatio || 1;
+      plot.width = Math.floor(cssSize * dpr);
+      plot.height = Math.floor(cssSize * dpr);
+      // reset transform so drawing uses CSS pixels coordinates
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // clear after resize
+      ctx.clearRect(0,0,plot.width,plot.height);
     }
 
     function drawPolarGrid(){
@@ -260,20 +270,8 @@
       };
     }
 
-    // Compute approximate angular speed (deg / second) across the sky by sampling 1 second ahead
-    function getAngularSpeed(satrec, date, obs){
-      const now = date;
-      const later = new Date(date.getTime() + 1000);
-      const a = getLookAngles(satrec, now, obs);
-      const b = getLookAngles(satrec, later, obs);
-      if(!a || !b) return 0;
-      // shortest azimuth delta (wrap-aware)
-      let da = b.az - a.az;
-      da = ((da + 540) % 360) - 180; // map to [-180,180]
-      const de = b.el - a.el;
-      const ang = Math.hypot(da, de); // degrees per second (since delta time is 1s)
-      return ang;
-    }
+    // track last look angles to compute per-frame angular speed (deg/s)
+    const lastAngles = new Map(); // name -> {az,el,t}
 
     function polarToCanvas(azDeg, elDeg){
       const w = plot.width, h = plot.height; const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
@@ -335,17 +333,32 @@
       const elevCut = Number(elevCutEl.value) || 0;
       const altCut = Number(altCutEl.value) || 1000;
 
-      // compute look angles
+      // compute look angles (single propagation per sat)
       const itemsAll = satRecords.map(s => {
         const look = getLookAngles(s.satrec, now, observer);
         if(!look) return null;
-        const speed = getAngularSpeed(s.satrec, now, observer);
-        return { name: s.name, az: look.az, el: look.el, range: look.range, altKm: look.altKm, speed };
+        return { name: s.name, az: look.az, el: look.el, range: look.range, altKm: look.altKm };
       }).filter(Boolean);
 
       // Apply filters BEFORE drawing to avoid clutter
-  const items = itemsAll.filter(it => it.el >= elevCut && it.altKm <= altCut);
-  lastItems = items;
+      const items = itemsAll.filter(it => it.el >= elevCut && it.altKm <= altCut);
+      lastItems = items;
+      // compute per-frame angular speed from previous positions to avoid extra propagation
+      items.forEach(it => {
+        const prev = lastAngles.get(it.name);
+        let speed = 0;
+        if(prev){
+          const dt = (now.getTime() - prev.t) / 1000;
+          if(dt > 0){
+            let da = it.az - prev.az;
+            da = ((da + 540) % 360) - 180; // wrap to [-180,180]
+            const de = it.el - prev.el;
+            speed = Math.hypot(da, de) / dt;
+          }
+        }
+        it.speed = speed;
+        lastAngles.set(it.name, { az: it.az, el: it.el, t: now.getTime() });
+      });
       const namesInFov = new Set(items.map(i=>i.name));
       for(const n of Array.from(selectedNames)){
         if(!namesInFov.has(n)) selectedNames.delete(n);
