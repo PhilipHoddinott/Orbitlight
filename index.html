@@ -116,11 +116,9 @@
 
         <!-- vertical legend used on wider screens (center between columns) -->
         <div id="colorLegendVert" style="display:none; align-items:center; gap:8px;">
+          <div id="colorMaxVert" style="font-size:12px; color:var(--muted)">—</div>
           <div id="colorBarVert" style="width:14px; height:220px; border-radius:8px; background:linear-gradient(180deg,#79b8ff,#ff6b6b);"></div>
-          <div class="labels">
-            <div id="colorMaxVert">—</div>
-            <div id="colorMinVert">—</div>
-          </div>
+          <div id="colorMinVert" style="font-size:12px; color:var(--muted)">—</div>
         </div>
 
     <aside class="card" id="right">
@@ -422,6 +420,7 @@
         if(sortKey === 'name') return a.name.localeCompare(b.name);
         if(sortKey === 'altitude') return (b.altKm || 0) - (a.altKm || 0);
         if(sortKey === 'speed') return (b.speed || 0) - (a.speed || 0);
+        if(sortKey === 'distance') return (a.range || 0) - (b.range || 0);
         return b.el - a.el;
       }).forEach(it=>{
         const div = document.createElement('div');
@@ -488,11 +487,12 @@
         const vert = `linear-gradient(180deg, ${vertStops.join(',')})`;
         if(colorBar) colorBar.style.background = horiz;
         if(colorBarVert) colorBarVert.style.background = vert;
-        if(colorMin) colorMin.textContent = `${fmt(minV,0)} ${sortKey === 'altitude' ? 'km' : '°/s'}`;
-        if(colorMax) colorMax.textContent = `${fmt(maxV,0)} ${sortKey === 'altitude' ? 'km' : '°/s'}`;
+        const unit = (sortKey === 'altitude' || sortKey === 'distance') ? 'km' : '°/s';
+        if(colorMin) colorMin.textContent = `${fmt(minV,0)} ${unit}`;
+        if(colorMax) colorMax.textContent = `${fmt(maxV,0)} ${unit}`;
         // vertical shows max on top, min on bottom
-        if(colorMaxVert) colorMaxVert.textContent = `${fmt(maxV,0)} ${sortKey === 'altitude' ? 'km' : '°/s'}`;
-        if(colorMinVert) colorMinVert.textContent = `${fmt(minV,0)} ${sortKey === 'altitude' ? 'km' : '°/s'}`;
+        if(colorMaxVert) colorMaxVert.textContent = `${fmt(maxV,0)} ${unit}`;
+        if(colorMinVert) colorMinVert.textContent = `${fmt(minV,0)} ${unit}`;
       }
     }
 
