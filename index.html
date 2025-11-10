@@ -73,6 +73,13 @@
         <div class="row">
           <button class="primary" id="refreshBtn">Refresh now</button>
           <button id="toggleBtn">Pause</button>
+          <label for="sortSelect" style="font-size:12px;color:var(--muted);">Sort:</label>
+          <select id="sortSelect" style="padding:6px 8px; font-size:13px;">
+            <option value="name">Name</option>
+            <option value="altitude">Altitude</option>
+            <option value="speed">Speed</option>
+          </select>
+          <button id="colorizeBtn" title="Colorize by selected sort">Colorize: Off</button>
           <button id="namesBtn" title="Toggle all names">Names: Off</button>
           <button id="nightBtn" title="Toggle red night mode">Night: Off</button>
         </div>
@@ -121,6 +128,8 @@
   const HIT_R = 10;
   // UI state
   let showAllNames = false;
+    let sortKey = 'name';
+    let colorize = false;
   let lastItems = []; // last computed visible items
 
     // --- Elements ---
@@ -139,6 +148,8 @@
     const filterTextEl = document.getElementById('filterText');
     const nightBtn = document.getElementById('nightBtn');
   const namesBtn = document.getElementById('namesBtn');
+  const sortSelect = document.getElementById('sortSelect');
+  const colorizeBtn = document.getElementById('colorizeBtn');
 
     // --- Helpers ---
     function fmt(n, d=1) { return Number(n).toFixed(d); }
@@ -286,12 +297,44 @@
       lastDrawn = [];
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent');
       const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted');
-      items.forEach(({ name, az, el, speed })=>{
+      // prepare color mapping when colorize is enabled
+      let metricVals = null;
+      if(colorize){
+        if(sortKey === 'altitude') metricVals = items.map(it => it.altKm || 0);
+        else if(sortKey === 'speed') metricVals = items.map(it => it.speed || 0);
+        // for name, we'll use a hash-based hue per name
+      }
+      const minV = metricVals ? Math.min(...metricVals) : 0;
+      const maxV = metricVals ? Math.max(...metricVals) : minV;
+
+      function valueToColor(v){
+        // map numeric v in [minV,maxV] -> hue 220 (blue) to 0 (red)
+        if(minV === maxV) return 'hsl(200 80% 60%)';
+        const t = (v - minV) / (maxV - minV);
+        const hue = 220 - 220 * t; // 220->0
+        return `hsl(${Math.round(hue)} 85% 60%)`;
+      }
+
+      function nameToColor(n){
+        // simple hash to hue
+        let h = 0; for(let i=0;i<n.length;i++) h = (h<<5) - h + n.charCodeAt(i);
+        const hue = Math.abs(h) % 360;
+        return `hsl(${hue} 70% 60%)`;
+      }
+
+      items.forEach(({ name, az, el, speed, altKm })=>{
         const p = polarToCanvas(az, el);
         lastDrawn.push({ name, x: p.x, y: p.y });
         const selected = selectedNames.has(name);
         ctx.beginPath();
-        ctx.fillStyle = accent;
+        // decide fill color
+        let fill = accent;
+        if(colorize){
+          if(sortKey === 'name') fill = nameToColor(name);
+          else if(sortKey === 'altitude') fill = valueToColor(altKm || 0);
+          else if(sortKey === 'speed') fill = valueToColor(speed || 0);
+        }
+        ctx.fillStyle = fill;
         ctx.arc(p.x, p.y, selected ? 6 : 4, 0, Math.PI*2);
         ctx.fill();
         // show name if selected, hovered, or global toggle is on
@@ -312,7 +355,12 @@
       countsEl.textContent = `${filtered.length} visible of ${items.length} within filters`;
 
       satListEl.innerHTML = '';
-      filtered.sort((a,b)=> b.el - a.el).forEach(it=>{
+      filtered.sort((a,b)=>{
+        if(sortKey === 'name') return a.name.localeCompare(b.name);
+        if(sortKey === 'altitude') return (b.altKm || 0) - (a.altKm || 0);
+        if(sortKey === 'speed') return (b.speed || 0) - (a.speed || 0);
+        return b.el - a.el;
+      }).forEach(it=>{
         const div = document.createElement('div');
         div.className = 'satItem';
         div.setAttribute('data-name', it.name);
@@ -434,6 +482,22 @@
     nightBtn.addEventListener('click', ()=>{
       const on = document.body.classList.toggle('night');
       nightBtn.textContent = on ? 'Night: On' : 'Night: Off';
+    });
+
+    // sort selector
+    sortSelect.addEventListener('change', ()=>{
+      sortKey = sortSelect.value || 'name';
+      updateList(lastItems);
+      drawPolarGrid();
+      drawSatellites(lastItems);
+    });
+
+    // colorize toggle
+    colorizeBtn.addEventListener('click', ()=>{
+      colorize = !colorize;
+      colorizeBtn.textContent = colorize ? 'Colorize: On' : 'Colorize: Off';
+      drawPolarGrid();
+      drawSatellites(lastItems);
     });
 
     // --- Boot ---
