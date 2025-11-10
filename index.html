@@ -50,7 +50,7 @@
 <body>
   <header>
     <div class="row">
-  <h1>Ephemr — Satellites Overhead By Philip Hoddinott</h1>
+  <h1>Orbit's Light — See the Satellites Overhead By Philip Hoddinott</h1>
   <span class="tag"><span id="tlePill" class="mono">—</span></span>
     </div>
     <div class="row" style="gap: 8px;">
@@ -91,6 +91,14 @@
         <div class="legend">
           <span><span class="dot" style="background: var(--accent);"></span> Visible now (el ≥ cutoff)</span>
           <span><span class="dot" style="background: var(--grid);"></span> Below cutoff</span>
+          <div id="colorLegend" style="display:none; align-items:center; gap:8px; margin-left:12px;">
+            <div style="font-size:12px;color:var(--muted);">Color scale:</div>
+            <div id="colorBar" style="width:160px; height:10px; border-radius:6px; background:linear-gradient(90deg,#79b8ff,#ff6b6b);"></div>
+            <div style="display:flex;flex-direction:column; align-items:flex-start; font-size:12px; color:var(--muted);">
+              <span id="colorMin">—</span>
+              <span id="colorMax">—</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -151,6 +159,10 @@
   const namesBtn = document.getElementById('namesBtn');
   const sortSelect = document.getElementById('sortSelect');
   const colorizeBtn = document.getElementById('colorizeBtn');
+  const colorLegend = document.getElementById('colorLegend');
+  const colorBar = document.getElementById('colorBar');
+  const colorMin = document.getElementById('colorMin');
+  const colorMax = document.getElementById('colorMax');
   // ensure control initial state
   sortSelect.value = sortKey;
 
@@ -160,6 +172,27 @@
     function rad2deg(r){ return r * 180 / Math.PI; }
 
     function pad2(n){ return String(Math.floor(n)).padStart(2,'0'); }
+
+    // --- Color helpers ---
+    function nameToColor(n){
+      let h = 0; for(let i=0;i<n.length;i++) h = (h<<5) - h + n.charCodeAt(i);
+      const hue = Math.abs(h) % 360;
+      return `hsl(${hue} 70% 60%)`;
+    }
+
+    function valueToColorRange(minV, maxV, v){
+      if(minV === maxV) return 'hsl(200 80% 60%)';
+      const t = (v - minV) / (maxV - minV);
+      const hue = 220 - 220 * t; // 220->0
+      return `hsl(${Math.round(hue)} 85% 60%)`;
+    }
+
+    function buildNameGradient(){
+      // a multi-stop hue gradient for names
+      const stops = [];
+      for(let i=0;i<=6;i++){ const h = Math.round(i * 60); stops.push(`hsl(${h} 70% 60%) ${Math.round((i/6)*100)}%`); }
+      return `linear-gradient(90deg, ${stops.join(',')})`;
+    }
 
     function updateTleAge(now){
       if(!tlePill || !TLE_MTIME) return;
@@ -305,30 +338,15 @@
       lastDrawn = [];
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent');
       const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted');
+
       // prepare color mapping when colorize is enabled
       let metricVals = null;
       if(colorize){
         if(sortKey === 'altitude') metricVals = items.map(it => it.altKm || 0);
         else if(sortKey === 'speed') metricVals = items.map(it => it.speed || 0);
-        // for name, we'll use a hash-based hue per name
       }
-      const minV = metricVals ? Math.min(...metricVals) : 0;
-      const maxV = metricVals ? Math.max(...metricVals) : minV;
-
-      function valueToColor(v){
-        // map numeric v in [minV,maxV] -> hue 220 (blue) to 0 (red)
-        if(minV === maxV) return 'hsl(200 80% 60%)';
-        const t = (v - minV) / (maxV - minV);
-        const hue = 220 - 220 * t; // 220->0
-        return `hsl(${Math.round(hue)} 85% 60%)`;
-      }
-
-      function nameToColor(n){
-        // simple hash to hue
-        let h = 0; for(let i=0;i<n.length;i++) h = (h<<5) - h + n.charCodeAt(i);
-        const hue = Math.abs(h) % 360;
-        return `hsl(${hue} 70% 60%)`;
-      }
+      const minV = metricVals && metricVals.length ? Math.min(...metricVals) : 0;
+      const maxV = metricVals && metricVals.length ? Math.max(...metricVals) : minV;
 
       items.forEach(({ name, az, el, speed, altKm })=>{
         const p = polarToCanvas(az, el);
@@ -339,8 +357,8 @@
         let fill = accent;
         if(colorize){
           if(sortKey === 'name') fill = nameToColor(name);
-          else if(sortKey === 'altitude') fill = valueToColor(altKm || 0);
-          else if(sortKey === 'speed') fill = valueToColor(speed || 0);
+          else if(sortKey === 'altitude') fill = valueToColorRange(minV, maxV, altKm || 0);
+          else if(sortKey === 'speed') fill = valueToColorRange(minV, maxV, speed || 0);
         }
         ctx.fillStyle = fill;
         ctx.arc(p.x, p.y, selected ? 6 : 4, 0, Math.PI*2);
@@ -363,6 +381,15 @@
       countsEl.textContent = `${filtered.length} visible of ${items.length} within filters`;
 
       satListEl.innerHTML = '';
+      // build color mapping values for the list
+      let metricVals = null;
+      if(colorize){
+        if(sortKey === 'altitude') metricVals = filtered.map(it => it.altKm || 0);
+        else if(sortKey === 'speed') metricVals = filtered.map(it => it.speed || 0);
+      }
+      const minV = metricVals && metricVals.length ? Math.min(...metricVals) : 0;
+      const maxV = metricVals && metricVals.length ? Math.max(...metricVals) : minV;
+
       filtered.sort((a,b)=>{
         if(sortKey === 'name') return a.name.localeCompare(b.name);
         if(sortKey === 'altitude') return (b.altKm || 0) - (a.altKm || 0);
@@ -373,14 +400,44 @@
         div.className = 'satItem';
         div.setAttribute('data-name', it.name);
         const left = document.createElement('div');
-  left.innerHTML = `<div style="font-weight:600;">${it.name}</div><div class="meta">Az ${fmt(it.az,0)}° · El ${fmt(it.el,0)}° · Alt ${fmt(it.altKm,0)} km · Range ${fmt(it.range,0)} km · Speed ${fmt(it.speed||0,2)}°/s</div>`;
+  left.innerHTML = `<div style="font-weight:600;"><span class="satName">${it.name}</span></div><div class="meta">Az ${fmt(it.az,0)}° · El ${fmt(it.el,0)}° · Alt ${fmt(it.altKm,0)} km · Range ${fmt(it.range,0)} km · Speed ${fmt(it.speed||0,2)}°/s</div>`;
         const right = document.createElement('div');
         const isSel = selectedNames.has(it.name);
         right.innerHTML = `<span class="pill">${isSel ? 'selected' : 'tap to select'}</span>`;
         div.appendChild(left); div.appendChild(right);
+        // color the name in the list when colorize is on
+        const nameSpan = div.querySelector('.satName');
+        if(nameSpan){
+          if(colorize){
+            let c = accent;
+            if(sortKey === 'name') c = nameToColor(it.name);
+            else if(sortKey === 'altitude') c = valueToColorRange(minV, maxV, it.altKm || 0);
+            else if(sortKey === 'speed') c = valueToColorRange(minV, maxV, it.speed || 0);
+            nameSpan.style.color = c;
+          } else { nameSpan.style.color = ''; }
+        }
         satListEl.appendChild(div);
       });
+      // update color legend for the filtered set
+      updateColorLegend(filtered, minV, maxV);
   }
+
+    function updateColorLegend(items, minV, maxV){
+      if(!colorize || !items || items.length === 0){ colorLegend.style.display = 'none'; return; }
+      colorLegend.style.display = 'flex';
+      if(sortKey === 'name'){
+        colorBar.style.background = buildNameGradient();
+        colorMin.textContent = '';
+        colorMax.textContent = '';
+      } else {
+        // numeric
+        const a = valueToColorRange(minV, maxV, minV);
+        const b = valueToColorRange(minV, maxV, maxV);
+        colorBar.style.background = `linear-gradient(90deg, ${a} 0%, ${b} 100%)`;
+        colorMin.textContent = `${fmt(minV, 0)} ${sortKey === 'altitude' ? 'km' : '°/s'}`;
+        colorMax.textContent = `${fmt(maxV, 0)} ${sortKey === 'altitude' ? 'km' : '°/s'}`;
+      }
+    }
 
     function tick(){
       const now = new Date();
