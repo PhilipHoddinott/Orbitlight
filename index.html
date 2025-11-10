@@ -447,14 +447,17 @@
   }
 
     function updateColorLegend(items, minV, maxV){
+      // hide legends when not colorizing or no items
       if(!colorize || !items || items.length === 0){
         if(colorLegend) colorLegend.style.display = 'none';
         if(colorLegendVert) colorLegendVert.style.display = 'none';
         return;
       }
-      // show both (CSS will hide the inline one on desktop)
-      if(colorLegend) colorLegend.style.display = 'flex';
-      if(colorLegendVert) colorLegendVert.style.display = 'flex';
+
+      // choose which legend to show based on viewport width: vertical on desktop, inline on phone
+      const desktop = window.innerWidth >= 1000;
+      if(colorLegend) colorLegend.style.display = desktop ? 'none' : 'flex';
+      if(colorLegendVert) colorLegendVert.style.display = desktop ? 'flex' : 'none';
 
       if(sortKey === 'name'){
         const gH = buildNameGradient();
@@ -475,7 +478,9 @@
           stops.push(`${c} ${Math.round(t*100)}%`);
         }
         const horiz = `linear-gradient(90deg, ${stops.join(',')})`;
-        const vert = `linear-gradient(180deg, ${stops.join(',')})`;
+        // vertical should show max at top, so reverse the stops so first stop is max color
+        const vertStops = stops.slice().reverse();
+        const vert = `linear-gradient(180deg, ${vertStops.join(',')})`;
         if(colorBar) colorBar.style.background = horiz;
         if(colorBarVert) colorBarVert.style.background = vert;
         if(colorMin) colorMin.textContent = `${fmt(minV,0)} ${sortKey === 'altitude' ? 'km' : '°/s'}`;
