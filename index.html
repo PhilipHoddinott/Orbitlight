@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SkyAbove — JS Only</title>
+  <title>Orbit's Light</title>
   <style>
     :root {
       --bg: #0b1020;
@@ -42,7 +42,6 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
     #redOverlay{ position:fixed; inset:0; background:rgba(255,0,0,.28); mix-blend-mode:multiply; pointer-events:none; display:none; }
   body.night #redOverlay{ display:block; }
-}
 </style>
   <!-- SGP4 & helpers -->
   <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
@@ -50,7 +49,7 @@
 <body>
   <header>
     <div class="row">
-      <h1>SkyAbove — Satellites Overhead (JS‑Only)</h1>
+      <h1>Ephemr — Satellites Overhead By Philip Hoddinott</h1>
       <span class="tag">TLE source: <code class="mono">data/tle_latest.txt</code></span>
     </div>
     <div class="row" style="gap: 8px;">
@@ -64,16 +63,17 @@
       <div class="row" style="justify-content: space-between; margin-bottom: 10px;">
         <div class="row">
           <label for="elevCut">Elevation cutoff:</label>
-          <input id="elevCut" type="number" min="0" max="90" step="1" value="0" style="width: 80px;" />
+          <input id="elevCut" type="number" min="0" max="90" step="1" value="15" style="width: 80px;" />
           <label>deg</label>
           <span style="width:16px;"></span>
           <label for="altCut">Max altitude:</label>
-          <input id="altCut" type="number" min="0" step="50" value="1000" style="width: 100px;" />
+          <input id="altCut" type="number" min="0" step="50" value="500" style="width: 100px;" />
           <label>km</label>
         </div>
         <div class="row">
           <button class="primary" id="refreshBtn">Refresh now</button>
           <button id="toggleBtn">Pause</button>
+          <button id="namesBtn" title="Toggle all names">Names: Off</button>
           <button id="nightBtn" title="Toggle red night mode">Night: Off</button>
         </div>
       </div>
@@ -110,10 +110,16 @@
     const CANVAS_MIN = 360; // minimum height if screen is small
 
     // --- State ---
-    let satRecords = []; // { name, l1, l2, satrec }
-    let observer = { lat: FALLBACK_LOC.lat, lon: FALLBACK_LOC.lon, alt: 0, label: FALLBACK_LOC.label };
-    let running = true;
-    let rafId = null;
+  let satRecords = []; // { name, l1, l2, satrec }
+  let observer = { lat: FALLBACK_LOC.lat, lon: FALLBACK_LOC.lon, alt: 0, label: FALLBACK_LOC.label };
+  let running = true;
+  let rafId = null;
+  const selectedNames = new Set();
+  let lastDrawn = []; // [{name,x,y}]
+  const HIT_R = 10;
+  // UI state
+  let showAllNames = false;
+  let lastItems = []; // last computed visible items
 
     // --- Elements ---
     const plot = document.getElementById('plot');
@@ -129,6 +135,7 @@
     const altCutEl = document.getElementById('altCut');
     const filterTextEl = document.getElementById('filterText');
     const nightBtn = document.getElementById('nightBtn');
+  const namesBtn = document.getElementById('namesBtn');
 
     // --- Helpers ---
     function fmt(n, d=1) { return Number(n).toFixed(d); }
@@ -147,38 +154,48 @@
       ctx.clearRect(0,0,w,h);
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid');
       ctx.lineWidth = 1;
-      // Concentric circles for 30°, 60°, 90° horizon
-      const rings = [30, 60, 90];
-      ctx.beginPath();
-      rings.forEach(el => {
+      
+      const elevCut = Number(elevCutEl.value) || 0;
+      const gridCol = getComputedStyle(document.documentElement).getPropertyValue('--grid');
+      const accentCol = getComputedStyle(document.documentElement).getPropertyValue('--accent');
+      
+      // Draw rings
+      const rings = [0, elevCut, 30, 60, 90];
+      const uniqueRings = [...new Set(rings)].sort((a,b)=>a-b); // Remove duplicates and sort
+      
+      uniqueRings.forEach(el => {
         const r = R * (1 - el/90);
-        ctx.moveTo(r, 0);
+        // Use accent color for the min elevation cutoff line, grid color for others
+        ctx.strokeStyle = (el === elevCut && el !== 0) ? accentCol : gridCol;
+        ctx.beginPath();
         ctx.arc(0,0,r, 0, Math.PI*2);
+        ctx.stroke();
       });
-      ctx.stroke();
-      // Radials every 30° (az)
+      
+      // Draw radials
+      ctx.strokeStyle = gridCol;
       ctx.beginPath();
       for(let az=0; az<360; az+=30){
-        const a = (Math.PI/2) + deg2rad(az); // az=0=N up, 90=E right
+        const a = deg2rad(az);
         ctx.moveTo(0,0);
-        ctx.lineTo(R*Math.cos(a), R*Math.sin(a));
+        ctx.lineTo(R*Math.sin(a), -R*Math.cos(a));
       }
       ctx.stroke();
-      // Labels
+      
+      // Draw labels
       ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted');
       ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      // Cardinal labels
       const cardinals = [ ['N',0], ['E',90], ['S',180], ['W',270] ];
       cardinals.forEach(([t,az])=>{
-        const a = (Math.PI/2) + deg2rad(az);
-        ctx.fillText(t, (R+12)*Math.cos(a), (R+12)*Math.sin(a));
+        const a = deg2rad(az);
+        ctx.fillText(t, (R+12)*Math.sin(a), -(R+12)*Math.cos(a));
       });
-      // Elev labels 30/60
-      [30,60].forEach(el=>{
+      
+      // Draw elevation labels for all unique rings
+      uniqueRings.forEach(el=>{
         const r = R * (1 - el/90);
         ctx.fillText(el + '°', 0, -r);
       });
@@ -227,73 +244,95 @@
       };
     }
 
+    // Compute approximate angular speed (deg / second) across the sky by sampling 1 second ahead
+    function getAngularSpeed(satrec, date, obs){
+      const now = date;
+      const later = new Date(date.getTime() + 1000);
+      const a = getLookAngles(satrec, now, obs);
+      const b = getLookAngles(satrec, later, obs);
+      if(!a || !b) return 0;
+      // shortest azimuth delta (wrap-aware)
+      let da = b.az - a.az;
+      da = ((da + 540) % 360) - 180; // map to [-180,180]
+      const de = b.el - a.el;
+      const ang = Math.hypot(da, de); // degrees per second (since delta time is 1s)
+      return ang;
+    }
+
     function polarToCanvas(azDeg, elDeg){
       const w = plot.width, h = plot.height; const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
       const r = R * (1 - Math.max(0, Math.min(90, elDeg)) / 90);
-      const theta = (Math.PI/2) + deg2rad(azDeg); // N up, E left, S down, W right (head north)
-      const x = cx + r * Math.cos(theta);
-      const y = cy + r * Math.sin(theta);
+      const a = deg2rad(azDeg);
+      const x = cx + r * Math.sin(a);
+      const y = cy - r * Math.cos(a); // az=0 (N) -> top
       return { x, y };
     }
 
     function drawSatellites(items){
-      const w = plot.width, h = plot.height; const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
-      ctx.save();
-      ctx.translate(0,0);
+      lastDrawn = [];
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent');
-      const gridCol = getComputedStyle(document.documentElement).getPropertyValue('--grid');
-
-      items.forEach(({ name, az, el, aboveCut })=>{
+      const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted');
+      items.forEach(({ name, az, el, speed })=>{
         const p = polarToCanvas(az, el);
+        lastDrawn.push({ name, x: p.x, y: p.y });
+        const selected = selectedNames.has(name);
         ctx.beginPath();
-        ctx.fillStyle = aboveCut ? accent : gridCol;
-        ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+        ctx.fillStyle = accent;
+        ctx.arc(p.x, p.y, selected ? 6 : 4, 0, Math.PI*2);
         ctx.fill();
-        // label (only if visible)
-        if(aboveCut){
-          ctx.fillStyle = '#cfe3ff';
+        // show name if selected, hovered, or global toggle is on
+        if(selected || showAllNames){
+          ctx.fillStyle = selected ? '#cfe3ff' : muted;
           ctx.font = '11px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(name, p.x + 6, p.y);
+          const label = (speed != null) ? `${name} (${fmt(speed,2)}°/s)` : name;
+          ctx.fillText(label, p.x + 8, p.y);
         }
       });
-      ctx.restore();
     }
 
     function updateList(items){
       const f = filterTextEl.value.trim().toLowerCase();
-      const filtered = items.filter(it => it.el > 0 && (!f || it.name.toLowerCase().includes(f)));
-      const totalVisible = items.filter(it => it.el > 0).length;
-      countsEl.textContent = `${totalVisible} visible of ${items.length} tracked`;
+      const filtered = items.filter(it => (!f || it.name.toLowerCase().includes(f)));
+      countsEl.textContent = `${filtered.length} visible of ${items.length} within filters`;
 
       satListEl.innerHTML = '';
       filtered.sort((a,b)=> b.el - a.el).forEach(it=>{
         const div = document.createElement('div');
         div.className = 'satItem';
+        div.setAttribute('data-name', it.name);
         const left = document.createElement('div');
-        left.innerHTML = `<div style="font-weight:600;">${it.name}</div>
-                          <div class="meta">Az ${fmt(it.az,0)}° · El ${fmt(it.el,0)}° · Alt ${fmt(it.altKm,0)} km · Range ${fmt(it.range,0)} km</div>`;
+  left.innerHTML = `<div style="font-weight:600;">${it.name}</div><div class="meta">Az ${fmt(it.az,0)}° · El ${fmt(it.el,0)}° · Alt ${fmt(it.altKm,0)} km · Range ${fmt(it.range,0)} km · Speed ${fmt(it.speed||0,2)}°/s</div>`;
         const right = document.createElement('div');
-        right.innerHTML = `<span class="pill">el ${fmt(it.el,0)}°</span>`;
+        const isSel = selectedNames.has(it.name);
+        right.innerHTML = `<span class="pill">${isSel ? 'selected' : 'tap to select'}</span>`;
         div.appendChild(left); div.appendChild(right);
         satListEl.appendChild(div);
       });
-    }
+  }
 
     function tick(){
       const now = new Date();
       clockPill.textContent = now.toISOString();
       const elevCut = Number(elevCutEl.value) || 0;
+      const altCut = Number(altCutEl.value) || 1000;
 
       // compute look angles
-      const altCut = Number(altCutEl.value) || 1000;
-      const items = satRecords.map(s => {
+      const itemsAll = satRecords.map(s => {
         const look = getLookAngles(s.satrec, now, observer);
         if(!look) return null;
-        const aboveCut = look.el >= elevCut; // el already in degrees
-        return { name: s.name, az: look.az, el: look.el, range: look.range, altKm: look.altKm, aboveCut };
-      }).filter(Boolean).filter(it => it.altKm <= altCut);
+        const speed = getAngularSpeed(s.satrec, now, observer);
+        return { name: s.name, az: look.az, el: look.el, range: look.range, altKm: look.altKm, speed };
+      }).filter(Boolean);
+
+      // Apply filters BEFORE drawing to avoid clutter
+  const items = itemsAll.filter(it => it.el >= elevCut && it.altKm <= altCut);
+  lastItems = items;
+      const namesInFov = new Set(items.map(i=>i.name));
+      for(const n of Array.from(selectedNames)){
+        if(!namesInFov.has(n)) selectedNames.delete(n);
+      }
 
       drawPolarGrid();
       drawSatellites(items);
@@ -339,14 +378,29 @@
     }
 
     // --- Events ---
-    window.addEventListener('resize', ()=>{ resizeCanvas(); });
-    refreshBtn.addEventListener('click', ()=>{ if(!running){ running = true; tick(); } });
-    toggleBtn.addEventListener('click', ()=>{
-      running = !running;
-      toggleBtn.textContent = running ? 'Pause' : 'Resume';
-      if(running) tick(); else if(rafId) cancelAnimationFrame(rafId);
+    satListEl.addEventListener('click', (e)=>{
+      const item = e.target.closest('.satItem');
+      if(!item) return;
+      const name = item.getAttribute('data-name');
+      if(!name) return;
+      if(selectedNames.has(name)) selectedNames.delete(name); else selectedNames.add(name);
+      // redraw to show selection immediately
+      drawPolarGrid();
+      drawSatellites(lastItems);
+      updateList(lastItems);
     });
-    filterTextEl.addEventListener('input', ()=>{});
+
+    filterTextEl.addEventListener('input', ()=>{
+      updateList(lastItems);
+    });
+
+    namesBtn.addEventListener('click', ()=>{
+      showAllNames = !showAllNames;
+      namesBtn.textContent = showAllNames ? 'Names: On' : 'Names: Off';
+      drawPolarGrid();
+      drawSatellites(lastItems);
+    });
+
     nightBtn.addEventListener('click', ()=>{
       const on = document.body.classList.toggle('night');
       nightBtn.textContent = on ? 'Night: On' : 'Night: Off';
