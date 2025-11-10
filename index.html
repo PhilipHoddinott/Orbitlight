@@ -26,6 +26,7 @@
     .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     label { font-size: 12px; color: var(--muted); }
     input, select, button { background: #0f1630; color: var(--text); border: 1px solid #203159; border-radius: 10px; padding: 8px 10px; font-size: 14px; }
+  select { min-width: 120px; }
     button { cursor: pointer; }
     button.primary { background: #19315f; border-color: #29539b; }
     #plotWrap { position: relative; }
@@ -150,6 +151,8 @@
   const namesBtn = document.getElementById('namesBtn');
   const sortSelect = document.getElementById('sortSelect');
   const colorizeBtn = document.getElementById('colorizeBtn');
+  // ensure control initial state
+  sortSelect.value = sortKey;
 
     // --- Helpers ---
     function fmt(n, d=1) { return Number(n).toFixed(d); }
@@ -187,7 +190,10 @@
     }
 
     function drawPolarGrid(){
-      const w = plot.width, h = plot.height; const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
+      const dpr = window.devicePixelRatio || 1;
+      // use CSS pixel sizes for layout so the transform (scaled by dpr) doesn't multiply coordinates twice
+      const w = plot.width / dpr, h = plot.height / dpr;
+      const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
       ctx.clearRect(0,0,w,h);
       ctx.save();
       ctx.translate(cx, cy);
@@ -285,7 +291,9 @@
     const lastAngles = new Map(); // name -> {az,el,t}
 
     function polarToCanvas(azDeg, elDeg){
-      const w = plot.width, h = plot.height; const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
+      const dpr = window.devicePixelRatio || 1;
+      const w = plot.width / dpr, h = plot.height / dpr;
+      const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
       const r = R * (1 - Math.max(0, Math.min(90, elDeg)) / 90);
       const a = deg2rad(azDeg);
       const x = cx + r * Math.sin(a);
