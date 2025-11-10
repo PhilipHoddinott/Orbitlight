@@ -50,7 +50,7 @@
 <body>
   <header>
     <div class="row">
-  <h1>Orbit's Light — See the Satellites Overhead By Philip Hoddinott</h1>
+  <h1>Orbit's Light — See the Satellites Overhead</h1>
   <span class="tag"><span id="tlePill" class="mono">—</span></span>
     </div>
     <div class="row" style="gap: 8px;">
@@ -58,6 +58,7 @@
       <span id="clockPill" class="pill">—</span>
     </div>
   </header>
+  <div style="padding:6px 20px; color:var(--muted); font-size:13px;">By Philip Hoddinott, you can adjust the h1 title to remove  By Philip Hoddinott where it currently is</div>
 
   <main>
     <section class="card" id="left">
@@ -382,6 +383,7 @@
 
       satListEl.innerHTML = '';
       // build color mapping values for the list
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent');
       let metricVals = null;
       if(colorize){
         if(sortKey === 'altitude') metricVals = filtered.map(it => it.altKm || 0);
