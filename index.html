@@ -666,27 +666,6 @@
     }
 
     // --- Events ---
-    const helpModal = document.getElementById('helpModal');
-    const helpLink = document.getElementById('helpLink');
-    const helpClose = document.getElementById('helpClose');
-    const helpCloseBtn = document.getElementById('helpCloseBtn');
-
-    helpLink.addEventListener('click', () => {
-      helpModal.style.display = 'block';
-    });
-
-    const closeHelp = () => {
-      helpModal.style.display = 'none';
-    };
-
-    helpClose.addEventListener('click', closeHelp);
-    helpCloseBtn.addEventListener('click', closeHelp);
-
-    // Close modal when clicking outside the content
-    helpModal.addEventListener('click', (e) => {
-      if(e.target === helpModal) closeHelp();
-    });
-
     satListEl.addEventListener('click', (e)=>{
       const item = e.target.closest('.satItem');
       if(!item) return;
@@ -739,6 +718,30 @@
         await loadTLE();
         drawPolarGrid();
         tick();
+        
+        // Setup help modal listeners (after DOM is ready)
+        const helpModal = document.getElementById('helpModal');
+        const helpLink = document.getElementById('helpLink');
+        const helpClose = document.getElementById('helpClose');
+        const helpCloseBtn = document.getElementById('helpCloseBtn');
+
+        if(helpLink && helpModal && helpClose && helpCloseBtn) {
+          helpLink.addEventListener('click', () => {
+            helpModal.style.display = 'block';
+          });
+
+          const closeHelp = () => {
+            helpModal.style.display = 'none';
+          };
+
+          helpClose.addEventListener('click', closeHelp);
+          helpCloseBtn.addEventListener('click', closeHelp);
+
+          // Close modal when clicking outside the content
+          helpModal.addEventListener('click', (e) => {
+            if(e.target === helpModal) closeHelp();
+          });
+        }
       } catch (e){
         console.error(e);
         const msg = document.createElement('div');
