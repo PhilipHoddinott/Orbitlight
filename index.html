@@ -415,12 +415,23 @@
         az: rad2deg(look.azimuth),
         el: rad2deg(look.elevation),
         range: look.rangeSat,
-        altKm: geo.height
+        altKm: geo.height,
+        positionEcf: positionEcf  // Include ECF position for vector calculations
       };
     }
 
-    // track last look angles to compute per-frame angular speed (deg/s)
-    const lastAngles = new Map(); // name -> {az,el,t}
+    // track last look angles to compute per-frame angular speed (deg/s) using vector method
+    const lastAngles = new Map(); // name -> {az,el,range,t}
+
+    // Compute angle between two vectors (in degrees) using dot product
+    function angleBetweenVectors(v1, v2) {
+      const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+      const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z);
+      const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z);
+      if(mag1 === 0 || mag2 === 0) return 0;
+      const cosAngle = Math.max(-1, Math.min(1, dot / (mag1 * mag2))); // clamp to [-1,1]
+      return rad2deg(Math.acos(cosAngle));
+    }
 
     function polarToCanvas(azDeg, elDeg){
       const dpr = window.devicePixelRatio || 1;
@@ -479,7 +490,7 @@
     function updateList(items){
       const f = filterTextEl.value.trim().toLowerCase();
       const filtered = items.filter(it => (!f || it.name.toLowerCase().includes(f)));
-      countsEl.textContent = `${filtered.length} visible of ${items.length} within filters`;
+      countsEl.textContent = `${filtered.length} visible`;
 
       satListEl.innerHTML = '';
       // build color mapping values for the list
@@ -594,27 +605,43 @@
       const itemsAll = satRecords.map(s => {
         const look = getLookAngles(s.satrec, now, observer);
         if(!look) return null;
-        return { name: s.name, az: look.az, el: look.el, range: look.range, altKm: look.altKm };
+        return { name: s.name, az: look.az, el: look.el, range: look.range, altKm: look.altKm, positionEcf: look.positionEcf };
       }).filter(Boolean);
 
       // Apply filters BEFORE drawing to avoid clutter
       const items = itemsAll.filter(it => it.el >= elevCut && it.altKm <= altCut);
       lastItems = items;
-      // compute per-frame angular speed from previous positions to avoid extra propagation
+      
+      // Compute observer position in ECF for vector calculations
+      const obsGd = { longitude: deg2rad(observer.lon), latitude: deg2rad(observer.lat), height: observer.alt || 0 };
+      const obsEcf = satellite.geodeticToEcf(obsGd);
+      
+      // compute per-frame angular speed using vector method
       items.forEach(it => {
         const prev = lastAngles.get(it.name);
         let speed = 0;
-        if(prev){
+        if(prev && prev.positionEcf){
           const dt = (now.getTime() - prev.t) / 1000;
           if(dt > 0){
-            let da = it.az - prev.az;
-            da = ((da + 540) % 360) - 180; // wrap to [-180,180]
-            const de = it.el - prev.el;
-            speed = Math.hypot(da, de) / dt;
+            // Vector from observer to current satellite position
+            const v1 = {
+              x: it.positionEcf.x - obsEcf.x,
+              y: it.positionEcf.y - obsEcf.y,
+              z: it.positionEcf.z - obsEcf.z
+            };
+            // Vector from observer to previous satellite position
+            const v2 = {
+              x: prev.positionEcf.x - obsEcf.x,
+              y: prev.positionEcf.y - obsEcf.y,
+              z: prev.positionEcf.z - obsEcf.z
+            };
+            // Angle between vectors (in degrees)
+            const angleDeg = angleBetweenVectors(v1, v2);
+            speed = angleDeg / dt; // degrees per second
           }
         }
         it.speed = speed;
-        lastAngles.set(it.name, { az: it.az, el: it.el, t: now.getTime() });
+        lastAngles.set(it.name, { positionEcf: it.positionEcf, t: now.getTime() });
       });
       const namesInFov = new Set(items.map(i=>i.name));
       for(const n of Array.from(selectedNames)){
