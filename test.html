@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Modular App</title>
+</head>
+<body>
+  <h1>Orbit's Light - Module Loading Test</h1>
+  <div id="log" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow: auto; background: #f5f5f5; font-family: monospace; white-space: pre-wrap;"></div>
+
+  <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/math.js"></script>
+  <script src="js/tle.js"></script>
+  <script src="js/orbital.js"></script>
+  <script src="js/colors.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    const logDiv = document.getElementById('log');
+    const originalLog = console.log;
+    
+    console.log = function(...args) {
+      originalLog(...args);
+      logDiv.textContent += args.join(' ') + '\n';
+      logDiv.scrollTop = logDiv.scrollHeight;
+    };
+
+    console.log('Test page loaded');
+    console.log('satellite defined?', typeof satellite !== 'undefined');
+    console.log('MAJOR_CITIES defined?', typeof MAJOR_CITIES !== 'undefined');
+    console.log('parseTLEs defined?', typeof parseTLEs !== 'undefined');
+    console.log('fmt defined?', typeof fmt !== 'undefined');
+    
+    (async () => {
+      try {
+        console.log('\nTesting TLE loading...');
+        const tles = await loadTLE();
+        console.log(`Loaded ${tles.length} TLEs`);
+        if(tles.length > 0) {
+          console.log(`First: ${tles[0].name}`);
+          console.log(`Has satrec? ${tles[0].satrec ? 'yes' : 'no'}`);
+        }
+      } catch(e) {
+        console.log('Error:', e.message);
+      }
+    })();
+  </script>
+</body>
+</html>

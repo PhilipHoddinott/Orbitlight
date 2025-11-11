@@ -5,8 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Orbit's Light</title>
   <link rel="stylesheet" href="css/styles.css">
-  <!-- SGP4 & helpers -->
+  <!-- SGP4 orbital mechanics library -->
   <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+  <!-- Modular app scripts - loaded but not executed until DOM is ready -->
+  <script src="js/config.js"></script>
+  <script src="js/math.js"></script>
+  <script src="js/tle.js"></script>
+  <script src="js/orbital.js"></script>
+  <script src="js/colors.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+  <!-- Main entry point: waits for DOM ready -->
+  <script src="js/main.js"></script>
 </head>
 <body>
   <header>

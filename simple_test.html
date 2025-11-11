@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple TLE Test</title>
+  <style>
+    body { font-family: monospace; }
+    #output { border: 1px solid #ccc; padding: 10px; height: 400px; overflow: auto; background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <h1>TLE Test</h1>
+  <button onclick="test()">Run Test</button>
+  <div id="output"></div>
+
+  <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+  <script>
+    function log(msg) {
+      document.getElementById('output').innerHTML += msg + '<br>';
+    }
+
+    async function test() {
+      log('Starting test...');
+      
+      // Test satellite.js
+      log('satellite object type: ' + typeof satellite);
+      
+      // Test fetching TLE
+      const res = await fetch('data/tle_latest.txt');
+      const text = await res.text();
+      log('Fetched TLE file: ' + text.split('\n').length + ' lines');
+      
+      // Test parsing
+      const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+      log('Non-empty lines: ' + lines.length);
+      
+      // Test extracting first satellite
+      let name = '', l1 = '', l2 = '';
+      if(!lines[0].startsWith('1') && !lines[0].startsWith('2') && lines[1] && lines[1].startsWith('1')) {
+        name = lines[0];
+        l1 = lines[1];
+        l2 = lines[2];
+      }
+      
+      log('First sat: ' + name);
+      log('L1: ' + l1.substring(0, 50) + '...');
+      log('L2: ' + l2.substring(0, 50) + '...');
+      
+      // Test parsing with satellite.js
+      const satrec = satellite.twoline2satrec(l1, l2);
+      log('satrec.error: ' + satrec.error);
+      log('satrec.epochday: ' + satrec.epochdays);
+      
+      // Test propagation
+      const now = new Date();
+      const pv = satellite.propagate(satrec, now);
+      log('Propagation error: ' + pv.error);
+      log('Position ECF: x=' + (pv.position ? pv.position.x.toFixed(2) : 'null'));
+    }
+  </script>
+</body>
+</html>

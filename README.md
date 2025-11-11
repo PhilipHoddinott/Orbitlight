@@ -63,7 +63,7 @@ Then open `http://localhost:8000` in your browser.
 
 ## Data Source
 
-TLE data from [CelesTrak](https://celestrak.org/) via periodic updates.
+TLE data from [CelesTrak](https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle) via periodic updates.
 
 ## Author
 
