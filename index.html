@@ -193,6 +193,82 @@
 
     function pad2(n){ return String(Math.floor(n)).padStart(2,'0'); }
 
+    // Major world cities for light pollution analysis
+    const MAJOR_CITIES = [
+      { name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
+      { name: 'Delhi', lat: 28.7041, lon: 77.1025 },
+      { name: 'Shanghai', lat: 31.2304, lon: 121.4737 },
+      { name: 'São Paulo', lat: -23.5505, lon: -46.6333 },
+      { name: 'Mexico City', lat: 19.4326, lon: -99.1332 },
+      { name: 'Cairo', lat: 30.0444, lon: 31.2357 },
+      { name: 'Mumbai', lat: 19.0760, lon: 72.8777 },
+      { name: 'Beijing', lat: 39.9042, lon: 116.4074 },
+      { name: 'Dhaka', lat: 23.8103, lon: 90.4125 },
+      { name: 'Osaka', lat: 34.6937, lon: 135.5023 },
+      { name: 'New York', lat: 40.7128, lon: -74.0060 },
+      { name: 'Karachi', lat: 24.8607, lon: 67.0011 },
+      { name: 'Buenos Aires', lat: -34.6037, lon: -58.3816 },
+      { name: 'Kolkata', lat: 22.5726, lon: 88.3639 },
+      { name: 'Los Angeles', lat: 34.0522, lon: -118.2437 },
+      { name: 'Jakarta', lat: -6.2088, lon: 106.8456 },
+      { name: 'London', lat: 51.5074, lon: -0.1278 },
+      { name: 'Paris', lat: 48.8566, lon: 2.3522 },
+      { name: 'Moscow', lat: 55.7558, lon: 37.6173 },
+      { name: 'Sydney', lat: -33.8688, lon: 151.2093 },
+      { name: 'Toronto', lat: 43.6532, lon: -79.3832 },
+      { name: 'Istanbul', lat: 41.0082, lon: 28.9784 },
+      { name: 'Dubai', lat: 25.2048, lon: 55.2708 },
+      { name: 'Singapore', lat: 1.3521, lon: 103.8198 },
+      { name: 'Hong Kong', lat: 22.3193, lon: 114.1694 },
+      { name: 'Bangkok', lat: 13.7563, lon: 100.5018 },
+      { name: 'Boston', lat: 42.3601, lon: -71.0589 },
+      { name: 'San Francisco', lat: 37.7749, lon: -122.4194 },
+      { name: 'Chicago', lat: 41.8781, lon: -87.6298 },
+    ];
+
+    // Calculate bearing from observer to city (0°=N, 90°=E, 180°=S, 270°=W)
+    function calcBearing(lat1, lon1, lat2, lon2) {
+      const dLon = deg2rad(lon2 - lon1);
+      const y = Math.sin(dLon) * Math.cos(deg2rad(lat2));
+      const x = Math.cos(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) - Math.sin(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(dLon);
+      const bearing = Math.atan2(y, x);
+      return (rad2deg(bearing) + 360) % 360; // 0-360 degrees
+    }
+
+    // Convert bearing to compass direction
+    function bearingToDir(bearing) {
+      const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+      return dirs[Math.round(bearing / 22.5) % 16];
+    }
+
+    // Haversine distance in km
+    function calcDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Earth radius in km
+      const dLat = deg2rad(lat2 - lat1);
+      const dLon = deg2rad(lon2 - lon1);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Find nearest major city and return info string
+    function getNearestCity(lat, lon) {
+      let nearest = null;
+      let minDist = Infinity;
+      MAJOR_CITIES.forEach(city => {
+        const dist = calcDistance(lat, lon, city.lat, city.lon);
+        if(dist < minDist) {
+          minDist = dist;
+          nearest = { ...city, dist };
+        }
+      });
+      if(!nearest) return '';
+      const bearing = calcBearing(lat, lon, nearest.lat, nearest.lon);
+      const dir = bearingToDir(bearing);
+      const miles = Math.round(minDist / 1.60934); // km to miles
+      return `Nearest Big City: ${nearest.name}, ${miles} miles ${dir}`;
+    }
+
     // --- Color helpers ---
     function nameToColor(n){
       let h = 0; for(let i=0;i<n.length;i++) h = (h<<5) - h + n.charCodeAt(i);
@@ -496,7 +572,17 @@
 
     function tick(){
       const now = new Date();
-      clockPill.textContent = now.toISOString();
+      // Display local time in user's timezone
+      const localTimeStr = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).format(now);
+      clockPill.textContent = localTimeStr;
       updateTleAge(now);
       const elevCut = Number(elevCutEl.value) || 0;
       const altCut = Number(altCutEl.value) || 1000;
@@ -552,7 +638,8 @@
     function setObserver(geo){
       observer = { lat: geo.lat, lon: geo.lon, alt: geo.alt || 0, label: geo.label || `${fmt(geo.lat,4)}, ${fmt(geo.lon,4)}` };
       siteLabel.textContent = observer.label;
-      locPill.textContent = `Obs: ${fmt(observer.lat,4)}°, ${fmt(observer.lon,4)}°`;
+      const nearestCity = getNearestCity(observer.lat, observer.lon);
+      locPill.innerHTML = `<div>Observer: ${fmt(observer.lat,4)}°, ${fmt(observer.lon,4)}°</div><div style="font-size:11px; color:var(--muted); margin-top:2px;">${nearestCity}</div>`;
     }
 
     function tryGeolocate(){
