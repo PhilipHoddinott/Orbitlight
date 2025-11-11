@@ -381,7 +381,8 @@
       const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
       const out = [];
       for(let i=0;i<lines.length;){
-        if(lines[i].startsWith('0 ')){
+          // Check for old format: "0 NAME"
+          if(lines[i].startsWith('0 ')){
           const name = lines[i].slice(2).trim();
           const l1 = lines[i+1];
           const l2 = lines[i+2];
@@ -389,12 +390,23 @@
             out.push({ name, l1, l2 });
             i += 3;
           } else { i++; }
-        } else if(lines[i].startsWith('1') && lines[i+1] && lines[i+1].startsWith('2')){
-          // Some files omit the 0 NAME line; attempt best-effort with unknown name
+          } 
+          // Check for new format: NAME (any line that's not "1" or "2" before a "1" line)
+          else if(lines[i].startsWith('1') && lines[i+1] && lines[i+1].startsWith('2')){
+            // Just name and TLE lines, no "0" prefix
           const name = 'UNKNOWN_' + out.length;
           out.push({ name, l1: lines[i], l2: lines[i+1] });
           i += 2;
-        } else {
+          }
+          // Detect name line followed by "1" line (new format without "0" prefix)
+          else if(!lines[i].startsWith('1') && !lines[i].startsWith('2') && lines[i+1] && lines[i+1].startsWith('1') && lines[i+2] && lines[i+2].startsWith('2')){
+            const name = lines[i];
+            const l1 = lines[i+1];
+            const l2 = lines[i+2];
+            out.push({ name, l1, l2 });
+            i += 3;
+          }
+          else {
           i++;
         }
       }
