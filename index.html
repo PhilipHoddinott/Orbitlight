@@ -61,9 +61,12 @@
   <h1>Orbit's Light — See the Satellites Overhead</h1>
   <span class="tag"><span id="tlePill" class="mono">—</span></span>
     </div>
-    <div class="row" style="gap: 8px;">
-      <span id="locPill" class="pill">Locating…</span>
-      <span id="clockPill" class="pill">—</span>
+    <div style="display:flex; gap:20px; align-items:center;">
+      <div style="font-size:12px; color:var(--muted); cursor:pointer;" id="helpLink">first time? <span style="color:var(--accent); text-decoration:underline;">Click here</span></div>
+      <div class="row" style="gap: 8px;">
+        <span id="locPill" class="pill">Locating…</span>
+        <span id="clockPill" class="pill">—</span>
+      </div>
     </div>
   </header>
   <div style="padding:6px 20px; color:var(--muted); font-size:13px;">By Philip Hoddinott</div>
@@ -663,6 +666,27 @@
     }
 
     // --- Events ---
+    const helpModal = document.getElementById('helpModal');
+    const helpLink = document.getElementById('helpLink');
+    const helpClose = document.getElementById('helpClose');
+    const helpCloseBtn = document.getElementById('helpCloseBtn');
+
+    helpLink.addEventListener('click', () => {
+      helpModal.style.display = 'block';
+    });
+
+    const closeHelp = () => {
+      helpModal.style.display = 'none';
+    };
+
+    helpClose.addEventListener('click', closeHelp);
+    helpCloseBtn.addEventListener('click', closeHelp);
+
+    // Close modal when clicking outside the content
+    helpModal.addEventListener('click', (e) => {
+      if(e.target === helpModal) closeHelp();
+    });
+
     satListEl.addEventListener('click', (e)=>{
       const item = e.target.closest('.satItem');
       if(!item) return;
@@ -729,5 +753,71 @@
   <footer style="padding: 12px 20px; text-align: center; font-size: 11px; color: var(--muted);">
     As always, written while sitting next to my beautiful (sleeping) wife. ❤️
   </footer>
+
+  <!-- Help Modal -->
+  <div id="helpModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; overflow:auto; padding:20px;">
+    <div style="background:var(--panel); border:1px solid #1b2648; border-radius:14px; max-width:800px; margin:40px auto; padding:30px; color:var(--text);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:24px;">Orbit's Light — Getting Started</h2>
+        <button id="helpClose" style="background:none; border:none; color:var(--text); font-size:24px; cursor:pointer; padding:0; width:30px; height:30px;">×</button>
+      </div>
+      
+      <div style="line-height:1.6; font-size:14px; color:var(--muted);">
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">📡 What This Does</h3>
+        <p>Orbit's Light shows satellites passing overhead from your location in real-time using SGP4 orbital propagation. Each dot on the polar plot represents a satellite, and you can filter, sort, and colorize them to analyze orbital patterns.</p>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">🗺️ The Sky Plot (Left Side)</h3>
+        <ul style="margin:10px 0; padding-left:20px;">
+          <li><strong>Polar Grid:</strong> North at top, South at bottom. Concentric rings show elevation angles (0°=horizon, 90°=directly overhead).</li>
+          <li><strong>Cardinal Directions:</strong> N, E, S, W labels mark compass directions.</li>
+          <li><strong>Blue Dots:</strong> Visible satellites above your elevation cutoff.</li>
+          <li><strong>Colored Rings:</strong> Accent-colored ring shows your minimum elevation cutoff.</li>
+          <li><strong>Names Toggle:</strong> Click "Names: Off/On" to show satellite names and speeds on the plot.</li>
+        </ul>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">⚙️ Filters & Controls (Top Controls)</h3>
+        <ul style="margin:10px 0; padding-left:20px;">
+          <li><strong>Elevation Cutoff:</strong> Hides satellites below this angle (default 15°). Lower = more satellites but shorter observation windows.</li>
+          <li><strong>Max Altitude:</strong> Hides satellites higher than this (default 500 km). Useful for filtering out high-orbit sats.</li>
+          <li><strong>Refresh Now:</strong> Forces a TLE (orbit data) reload from server.</li>
+          <li><strong>Pause:</strong> Stops the animation to examine static positions.</li>
+          <li><strong>Sort:</strong> Organize satellite list by Name, Altitude, Distance (closest first), or Speed (fastest first).</li>
+          <li><strong>Colorize:</strong> Color satellites and list names by the selected sort metric (helpful for visual pattern spotting).</li>
+          <li><strong>Names:</strong> Toggle all satellite names on the sky plot.</li>
+          <li><strong>Night:</strong> Toggle red night-vision mode to preserve dark adaptation.</li>
+        </ul>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">📊 Satellite List (Right Side)</h3>
+        <ul style="margin:10px 0; padding-left:20px;">
+          <li><strong>Click to Select:</strong> Tap any satellite to highlight it on the plot.</li>
+          <li><strong>Filter Box:</strong> Type a name to quickly find satellites (e.g., "ISS", "HUBBLE").</li>
+          <li><strong>Per-Satellite Info:</strong> Azimuth (direction), Elevation (angle), Altitude (km), Range (distance in km), Speed (angular speed in °/s).</li>
+        </ul>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">📍 Observer Location</h3>
+        <p>Shows your precise latitude/longitude and the nearest major city with distance and bearing. This helps assess light pollution from nearby urban areas. Location is detected via device GPS or falls back to Boston, MA.</p>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">🕐 Time Display</h3>
+        <p>Displays your <strong>local time</strong> (in your timezone) and how long ago the TLE (orbital data) was last updated. Fresh TLEs improve prediction accuracy.</p>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">🎨 Color Legend</h3>
+        <p>When Colorize is on, a color scale appears showing which metric is currently mapped. On phones, the legend is horizontal below the plot. On desktop, it's centered between columns.</p>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">💡 Tips</h3>
+        <ul style="margin:10px 0; padding-left:20px;">
+          <li>Lower your elevation cutoff for more satellites (but shorter visibility windows).</li>
+          <li>Use "Colorize" with "Sort: Altitude" to see which satellites are highest.</li>
+          <li>Watch the speed of dots moving on the plot—slower = higher orbits, faster = lower orbits.</li>
+          <li>Use Night mode when observing to keep your eyes dark-adapted.</li>
+          <li>The ISS (International Space Station) is often the brightest and fastest-moving at lower altitudes.</li>
+        </ul>
+
+        <h3 style="color:var(--accent); margin-top:20px; margin-bottom:10px;">📚 Technical Notes</h3>
+        <p>Data from <strong>CelesTrak</strong> TLE updates. Predictions use SGP4 orbital mechanics (accurate for ~1 week from TLE date). Light pollution context via nearest major city bearing/distance.</p>
+      </div>
+
+      <button id="helpCloseBtn" style="background:var(--accent); color:var(--bg); border:none; border-radius:8px; padding:10px 20px; font-weight:600; cursor:pointer; margin-top:20px; width:100%;">Got It, Let's Watch Satellites!</button>
+    </div>
+  </div>
 </body>
 </html>
