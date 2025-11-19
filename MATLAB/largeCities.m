@@ -1,0 +1,14 @@
+close all; clear all;
+
+load('C:\Users\Philip\Documents\Projects\Ephemr\MATLAB\MATLAB_DATA\1000cities.mat')
+
+%{
+const MAJOR_CITIES = [ { name: 'Tokyo', lat: 35.6762, lon: 139.6503 }, { name: 'Delhi', lat: 28.7041, lon: 77.1025 }, ];
+%}
+for i = 1:height(Cities)
+    name = sprintf('%s, %s',Cities.NameOfCity(i), Cities.Country(i));
+    lat = sprintf('%.4f', Cities.Latitude(i));
+    lon = sprintf('%.4f', Cities.Longitude(i));
+    
+    fprintf("{ name: '%s', lat: %s, lon: %s },\n", name, lat, lon);
+end

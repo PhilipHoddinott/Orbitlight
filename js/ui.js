@@ -1,3 +1,15 @@
+  // Reset to My Location button: restore geolocation
+  if(resetLocBtn){
+    resetLocBtn.addEventListener('click', ()=>{
+      tryGeolocate();
+      manualLoc.value = '';
+      locPill.classList.remove('warn');
+      // redraw with new observer (will be set by geolocate callback)
+      drawPolarGrid();
+      drawSatellites(lastItems);
+      updateList(lastItems);
+    });
+  }
 // UI state and event handlers
 
 // --- State ---
@@ -166,6 +178,34 @@ function setupEventHandlers(){
       console.error('Error reloading TLE:', e);
     }
   });
+
+  // Manual location input: user can enter "lat, lon" and press Set Location
+  if(applyLocBtn && manualLoc){
+    applyLocBtn.addEventListener('click', ()=>{
+      const v = manualLoc.value.trim();
+      if(!v) return;
+      const parts = v.split(',').map(s=>s.trim());
+      if(parts.length < 2){
+        locPill.classList.add('warn');
+        locPill.textContent = 'Invalid format — use "lat, lon"';
+        return;
+      }
+      const lat = Number(parts[0]);
+      const lon = Number(parts[1]);
+      if(Number.isNaN(lat) || Number.isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180){
+        locPill.classList.add('warn');
+        locPill.textContent = 'Invalid coordinates';
+        return;
+      }
+      setObserver({ lat, lon, label: `Manual: ${lat.toFixed(4)}, ${lon.toFixed(4)}` });
+      locPill.classList.remove('warn');
+      manualLoc.value = '';
+      // redraw immediately with new observer
+      drawPolarGrid();
+      drawSatellites(lastItems);
+      updateList(lastItems);
+    });
+  }
 
   // Window resize handler
   window.addEventListener('resize', ()=>{
