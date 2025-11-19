@@ -5,8 +5,8 @@
 const DATA_URL = 'data/tle_latest.txt';
 const FALLBACK_LOC = { lat: 42.3601, lon: -71.0589, label: 'Boston, MA (fallback)' };
 const CANVAS_MIN = 240; // minimum height if screen is small (lower for phones)
-// Last-modified time for TLE file (embedded at build time)
-const TLE_MTIME = new Date('2025-11-10T21:13:21.2497508Z');
+// Last-modified time for TLE file (fetched from server)
+let TLE_MTIME = null;
 
 // --- State ---
 let satRecords = []; // { name, l1, l2, satrec }
@@ -155,7 +155,11 @@ function buildNameGradient(){
 }
 
 function updateTleAge(now){
-  if(!tlePill || !TLE_MTIME) return;
+  if(!tlePill) return;
+  if(!TLE_MTIME) {
+    tlePill.textContent = '—';
+    return;
+  }
   const then = TLE_MTIME.getTime();
   const diffMs = Math.max(0, now.getTime() - then);
   const s = Math.floor(diffMs / 1000);
@@ -481,8 +485,16 @@ function tick(){
 }
 
 async function loadTLE(){
-  const res = await fetch(DATA_URL);
+  // Fetch TLE file and get its last-modified time
+  const res = await fetch(DATA_URL, { method: 'GET' });
   if(!res.ok){ throw new Error(`Failed to fetch ${DATA_URL}: ${res.status}`); }
+  // Try to get Last-Modified header
+  const lastMod = res.headers.get('Last-Modified');
+  if(lastMod) {
+    TLE_MTIME = new Date(lastMod);
+  } else {
+    TLE_MTIME = null;
+  }
   const text = await res.text();
   satRecords = parseTLEs(text);
   if(!satRecords.length) throw new Error('No TLEs parsed.');
