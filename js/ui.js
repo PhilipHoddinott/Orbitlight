@@ -13,18 +13,7 @@
 // UI state and event handlers
 
 // --- State ---
-let satRecords = []; // { name, l1, l2, satrec }
-let observer = { lat: FALLBACK_LOC.lat, lon: FALLBACK_LOC.lon, alt: 0, label: FALLBACK_LOC.label };
-let running = true;
-let rafId = null;
-const selectedNames = new Set();
-let lastDrawn = []; // [{name,x,y}]
-const HIT_R = 10;
-let showAllNames = false;
-let sortKey = 'altitude';
-let colorize = false;
-let lastItems = []; // last computed visible items
-const lastAngles = new Map(); // name -> {positionEcf, t}
+// (now imported from config.js)
 
 function getNearestCity(lat, lon) {
   let nearest = null;

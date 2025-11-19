@@ -16,6 +16,20 @@ let sortSelect, colorizeBtn, colorLegend, colorBar, colorMin, colorMax;
 let colorLegendVert, colorBarVert, colorMinVert, colorMaxVert;
 let manualLoc, applyLocBtn;
 
+// --- Shared UI State (moved from ui.js for early initialization) ---
+let satRecords = [];
+let observer = { lat: FALLBACK_LOC.lat, lon: FALLBACK_LOC.lon, alt: 0, label: FALLBACK_LOC.label };
+let running = true;
+let rafId = null;
+const selectedNames = new Set();
+let lastDrawn = [];
+const HIT_R = 10;
+let showAllNames = false;
+let sortKey = 'altitude';
+let colorize = false;
+let lastItems = [];
+const lastAngles = new Map();
+
 // Initialize DOM element references (called from main.js after DOM is ready)
 function initializeDOMElements(){
   plot = document.getElementById('plot');
