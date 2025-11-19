@@ -34,8 +34,14 @@ function updateTleAge(now){
 function updateColorLegend(items, minV, maxV){
   // hide legends when not colorizing or no items
   if(!colorize || !items || items.length === 0){
-    if(colorLegend) colorLegend.style.display = 'none';
-    if(colorLegendVert) colorLegendVert.style.display = 'none';
+    if(colorLegend) {
+      colorLegend.style.display = 'none';
+      if(colorBar) colorBar.style.background = '';
+    }
+    if(colorLegendVert) {
+      colorLegendVert.style.display = 'none';
+      if(colorBarVert) colorBarVert.style.background = '';
+    }
     return;
   }
 

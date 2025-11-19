@@ -41,7 +41,8 @@ function drawPolarGrid(){
   for(let az=0; az<360; az+=30){
     const a = deg2rad(az);
     ctx.moveTo(0,0);
-    ctx.lineTo(R*Math.sin(a), -R*Math.cos(a));
+    // Flip horizontal axis so East appears on the left (lying-down view)
+    ctx.lineTo(-R*Math.sin(a), -R*Math.cos(a));
   }
   ctx.stroke();
   
@@ -52,7 +53,8 @@ function drawPolarGrid(){
   const cardinals = [ ['N',0], ['E',90], ['S',180], ['W',270] ];
   cardinals.forEach(([t,az])=>{
     const a = deg2rad(az);
-    ctx.fillText(t, (R+12)*Math.sin(a), -(R+12)*Math.cos(a));
+    // Flip horizontal axis for label positions as well
+    ctx.fillText(t, -(R+12)*Math.sin(a), -(R+12)*Math.cos(a));
   });
   
   uniqueRings.forEach(el=>{
@@ -68,7 +70,8 @@ function polarToCanvas(azDeg, elDeg){
   const cx = w/2, cy = h/2; const R = Math.min(cx, cy) - 20;
   const r = R * (1 - Math.max(0, Math.min(90, elDeg)) / 90);
   const a = deg2rad(azDeg);
-  const x = cx + r * Math.sin(a);
+  // Flip horizontal axis so East is left and West is right (lying-down view)
+  const x = cx - r * Math.sin(a);
   const y = cy - r * Math.cos(a);
   return { x, y };
 }
