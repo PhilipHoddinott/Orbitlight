@@ -488,17 +488,28 @@ async function loadTLE(){
   // Fetch TLE file and get its last-modified time
   const res = await fetch(DATA_URL, { method: 'GET', cache: 'no-store' });
   if(!res.ok){ throw new Error(`Failed to fetch ${DATA_URL}: ${res.status}`); }
-  // Try to get Last-Modified header
-  const lastMod = res.headers.get('Last-Modified');
-  if(lastMod) {
-    TLE_MTIME = new Date(lastMod);
-    console.log('TLE Last-Modified from server:', lastMod, '→', TLE_MTIME);
-  } else {
-    // Fallback: use current time as best guess (server doesn't send Last-Modified)
-    TLE_MTIME = new Date();
-    console.warn('No Last-Modified header from server; using current time as fallback for TLE age');
-  }
   const text = await res.text();
+  
+  // Try to parse timestamp from first line of file (format: # TLE Data Last Updated: YYYY-MM-DDTHH:MM:SSZ)
+  const lines = text.split(/\r?\n/);
+  const timestampLine = lines[0];
+  if(timestampLine && timestampLine.startsWith('# TLE Data Last Updated:')) {
+    const timestampStr = timestampLine.replace('# TLE Data Last Updated:', '').trim();
+    TLE_MTIME = new Date(timestampStr);
+    console.log('TLE timestamp from file:', timestampStr, '→', TLE_MTIME);
+  } else {
+    // Fallback: try Last-Modified header
+    const lastMod = res.headers.get('Last-Modified');
+    if(lastMod) {
+      TLE_MTIME = new Date(lastMod);
+      console.log('TLE Last-Modified from server:', lastMod, '→', TLE_MTIME);
+    } else {
+      // Final fallback: use current time
+      TLE_MTIME = new Date();
+      console.warn('No timestamp found in file or Last-Modified header; using current time as fallback');
+    }
+  }
+  
   satRecords = parseTLEs(text);
   if(!satRecords.length) throw new Error('No TLEs parsed.');
 }
