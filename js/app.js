@@ -486,14 +486,17 @@ function tick(){
 
 async function loadTLE(){
   // Fetch TLE file and get its last-modified time
-  const res = await fetch(DATA_URL, { method: 'GET' });
+  const res = await fetch(DATA_URL, { method: 'GET', cache: 'no-store' });
   if(!res.ok){ throw new Error(`Failed to fetch ${DATA_URL}: ${res.status}`); }
   // Try to get Last-Modified header
   const lastMod = res.headers.get('Last-Modified');
   if(lastMod) {
     TLE_MTIME = new Date(lastMod);
+    console.log('TLE Last-Modified from server:', lastMod, '→', TLE_MTIME);
   } else {
-    TLE_MTIME = null;
+    // Fallback: use current time as best guess (server doesn't send Last-Modified)
+    TLE_MTIME = new Date();
+    console.warn('No Last-Modified header from server; using current time as fallback for TLE age');
   }
   const text = await res.text();
   satRecords = parseTLEs(text);
