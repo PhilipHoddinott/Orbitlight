@@ -67,3 +67,13 @@ body.night #redOverlay{ display:block; }
     margin-bottom: 6px !important;
   }
 }
+
+/* Desktop (wider screens): keep help, location, time, manual entry and buttons on one row */
+@media (min-width: 601px) {
+  #topControls { flex-direction: row !important; align-items: center !important; gap: 12px !important; width: auto !important; max-width: none !important; }
+  #topControls > #helpLink { margin-bottom: 0 !important; margin-right: 8px !important; }
+  #manualLocWrap { flex-direction: row !important; align-items: center !important; gap: 8px !important; margin-top: 0 !important; }
+  #manualLoc { width: 220px !important; max-width: 320px !important; margin-bottom: 0 !important; }
+  #manualLocWrap > div { display: flex; gap: 8px; }
+  #manualLocWrap button { flex: none !important; width: auto !important; }
+}
