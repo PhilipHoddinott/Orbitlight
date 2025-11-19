@@ -141,16 +141,16 @@ function nameToColor(n){
 }
 
 function valueToColorRange(minV, maxV, v){
-  if(minV === maxV) return 'hsl(200 80% 60%)';
+  if(minV === maxV) return 'hsl(200, 80%, 60%)';
   const t = (v - minV) / (maxV - minV);
   const hue = 220 - 220 * t; // 220->0
-  return `hsl(${Math.round(hue)} 85% 60%)`;
+  return `hsl(${Math.round(hue)}, 85%, 60%)`;
 }
 
 function buildNameGradient(){
   // a multi-stop hue gradient for names
   const stops = [];
-  for(let i=0;i<=6;i++){ const h = Math.round(i * 60); stops.push(`hsl(${h} 70% 60%) ${Math.round((i/6)*100)}%`); }
+  for(let i=0;i<=6;i++){ const h = Math.round(i * 60); stops.push(`hsl(${h}, 70%, 60%) ${Math.round((i/6)*100)}%`); }
   return `linear-gradient(90deg, ${stops.join(',')})`;
 }
 
@@ -413,19 +413,28 @@ function updateColorLegend(items, minV, maxV){
     if(colorMinVert) colorMinVert.textContent = 'Z';
     if(colorMaxVert) colorMaxVert.textContent = 'A';
   } else {
+    console.log(`Building gradient for ${sortKey}: minV=${minV}, maxV=${maxV}`);
     const stops = [];
     const steps = 10;
     for(let i=0;i<=steps;i++){
       const t = i/steps;
       const v = minV + (maxV - minV) * t;
       const c = valueToColorRange(minV, maxV, v);
+      console.log(`  Step ${i}: t=${t.toFixed(2)}, v=${v.toFixed(1)}, color=${c}`);
       stops.push(`${c} ${Math.round(t*100)}%`);
     }
-    const horiz = `linear-gradient(90deg, ${stops.join(',')})`;
+    const horiz = `linear-gradient(90deg, ${stops.join(', ')})`;
     const vertStops = stops.slice().reverse();
-    const vert = `linear-gradient(180deg, ${vertStops.join(',')})`;
-    if(colorBar) colorBar.style.background = horiz;
-    if(colorBarVert) colorBarVert.style.background = vert;
+    const vert = `linear-gradient(180deg, ${vertStops.join(', ')})`;
+    console.log('Final gradient:', horiz);
+    if(colorBar) {
+      colorBar.style.backgroundImage = horiz;
+      colorBar.style.background = horiz;
+    }
+    if(colorBarVert) {
+      colorBarVert.style.backgroundImage = vert;
+      colorBarVert.style.background = vert;
+    }
     const unit = (sortKey === 'altitude' || sortKey === 'distance') ? 'km' : '°/s';
     if(colorMin) colorMin.textContent = `${fmt(minV,0)} ${unit}`;
     if(colorMax) colorMax.textContent = `${fmt(maxV,0)} ${unit}`;
