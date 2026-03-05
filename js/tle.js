@@ -1,5 +1,35 @@
 // TLE parsing and satellite record loading
 
+function parseTleEpochDate(line1){
+  if(!line1 || line1.length < 32) return null;
+  // TLE epoch field (YYDDD.DDDDDDDD) lives at columns 19-32 in line 1.
+  const epochField = line1.slice(18, 32).trim();
+  const m = epochField.match(/^(\d{2})(\d{3}(?:\.\d+)?)$/);
+  if(!m) return null;
+
+  const yy = Number(m[1]);
+  const dayOfYear = Number(m[2]);
+  if(Number.isNaN(yy) || Number.isNaN(dayOfYear) || dayOfYear <= 0) return null;
+
+  // NORAD convention: 57-99 => 1957-1999, 00-56 => 2000-2056.
+  const fullYear = yy >= 57 ? 1900 + yy : 2000 + yy;
+  const dayInt = Math.floor(dayOfYear);
+  const dayFrac = dayOfYear - dayInt;
+  const ms = Date.UTC(fullYear, 0, 1) + ((dayInt - 1) * 86400000) + (dayFrac * 86400000);
+  return new Date(ms);
+}
+
+function getLatestTleEpoch(records){
+  let latest = null;
+  for(const rec of records){
+    const epochDate = parseTleEpochDate(rec.l1);
+    if(epochDate && (!latest || epochDate > latest)){
+      latest = epochDate;
+    }
+  }
+  return latest;
+}
+
 function parseTLEs(text){
   const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   console.log(`parseTLEs: ${lines.length} non-empty lines`);
@@ -42,12 +72,32 @@ function parseTLEs(text){
 async function loadTLE(){
   console.log('loadTLE: Starting fetch...');
   console.log('satellite object exists?', typeof satellite !== 'undefined');
-  const res = await fetch(DATA_URL);
+  const res = await fetch(DATA_URL, { cache: 'no-store' });
   if(!res.ok){ throw new Error(`Failed to fetch ${DATA_URL}: ${res.status}`); }
   const text = await res.text();
   console.log(`Fetched TLE file, ${text.length} characters`);
   const records = parseTLEs(text);
   console.log(`Parsed ${records.length} TLE records`);
   if(!records.length) throw new Error('No TLEs parsed.');
+
+  const latestEpoch = getLatestTleEpoch(records);
+  if(latestEpoch){
+    TLE_MTIME = latestEpoch;
+    console.log('TLE_MTIME set from latest TLE epoch:', TLE_MTIME.toISOString());
+  } else {
+    const lastModified = res.headers.get('Last-Modified');
+    if(lastModified){
+      const parsed = new Date(lastModified);
+      if(!Number.isNaN(parsed.getTime())){
+        TLE_MTIME = parsed;
+        console.log('TLE_MTIME set from Last-Modified header:', TLE_MTIME.toISOString());
+      }
+    }
+    if(!TLE_MTIME){
+      TLE_MTIME = new Date();
+      console.warn('Could not parse a TLE epoch or Last-Modified header; using current time fallback.');
+    }
+  }
+
   return records;
 }

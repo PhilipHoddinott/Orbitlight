@@ -4,8 +4,8 @@
 const DATA_URL = 'data/tle_latest.txt';
 const FALLBACK_LOC = { lat: 42.3601, lon: -71.0589, label: 'Boston, MA (fallback)' };
 const CANVAS_MIN = 240; // minimum height if screen is small (lower for phones)
-// Last-modified time for TLE file (embedded at build time)
-const TLE_MTIME = new Date('2025-11-10T21:13:21.2497508Z');
+// Last-modified/epoch time for TLE data (set at runtime by loadTLE)
+let TLE_MTIME = null;
 
 // MAJOR_CITIES is now loaded from js/cities.js
 
